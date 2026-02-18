@@ -1,20 +1,18 @@
 require("dotenv").config();
 
-const { 
-  Client, 
-  GatewayIntentBits 
-} = require("discord.js");
-
+const { Client, GatewayIntentBits } = require("discord.js");
 const {
   joinVoiceChannel,
   createAudioPlayer,
   createAudioResource,
   AudioPlayerStatus,
   entersState,
-  VoiceConnectionStatus
+  VoiceConnectionStatus,
+  StreamType
 } = require("@discordjs/voice");
 
-const play = require("play-dl");
+const ytdl = require("ytdl-core");
+const ytsr = require("ytsr");
 
 const client = new Client({
   intents: [
@@ -45,19 +43,23 @@ client.on("messageCreate", async (message) => {
   try {
     let url;
 
-    // إذا كان الرابط مباشر
-    if (play.yt_validate(query) === "video") {
+    // إذا رابط مباشر
+    if (ytdl.validateURL(query)) {
       url = query;
     } else {
-      // بحث بالاسم
-      const results = await play.search(query, { limit: 1 });
-      if (!results.length) {
-        return message.reply("ما حصلت شي.");
-      }
-      url = results[0].url;
+      const searchResults = await ytsr(query, { limit: 5 });
+      const video = searchResults.items.find(i => i.type === "video");
+
+      if (!video) return message.reply("ما حصلت نتيجة مناسبة.");
+
+      url = video.url;
     }
 
-    const stream = await play.stream(url);
+    const stream = ytdl(url, {
+      filter: "audioonly",
+      quality: "highestaudio",
+      highWaterMark: 1 << 25
+    });
 
     const connection = joinVoiceChannel({
       channelId: message.member.voice.channel.id,
@@ -69,8 +71,8 @@ client.on("messageCreate", async (message) => {
 
     const player = createAudioPlayer();
 
-    const resource = createAudioResource(stream.stream, {
-      inputType: stream.type
+    const resource = createAudioResource(stream, {
+      inputType: StreamType.Arbitrary
     });
 
     player.play(resource);
