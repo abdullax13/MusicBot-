@@ -11,8 +11,9 @@ const {
   StreamType
 } = require("@discordjs/voice");
 
+const play = require("play-dl");
 const ytdl = require("ytdl-core");
-const ytsr = require("ytsr");
+const sodium = require("libsodium-wrappers");
 
 const client = new Client({
   intents: [
@@ -36,23 +37,17 @@ client.on("messageCreate", async (message) => {
   }
 
   const query = message.content.slice(6).trim();
-  if (!query) {
-    return message.reply("اكتب اسم الأغنية بعد الأمر.");
-  }
+  if (!query) return message.reply("اكتب اسم الأغنية بعد الأمر.");
 
   try {
     let url;
 
-    // إذا رابط مباشر
     if (ytdl.validateURL(query)) {
       url = query;
     } else {
-      const searchResults = await ytsr(query, { limit: 5 });
-      const video = searchResults.items.find(i => i.type === "video");
-
-      if (!video) return message.reply("ما حصلت نتيجة مناسبة.");
-
-      url = video.url;
+      const results = await play.search(query, { limit: 1 });
+      if (!results.length) return message.reply("ما حصلت شي.");
+      url = results[0].url;
     }
 
     const stream = ytdl(url, {
