@@ -13,7 +13,6 @@ const {
 
 const play = require("play-dl");
 const ytdl = require("ytdl-core");
-const sodium = require("libsodium-wrappers");
 
 const client = new Client({
   intents: [
