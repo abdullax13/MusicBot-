@@ -13,6 +13,6 @@
     "dotenv": "^16.4.5",
     "play-dl": "^1.9.6",
     "ytdl-core": "^4.11.5",
-    "libsodium-wrappers": "^0.7.13"
+    "sodium-native": "^3.4.1"
   }
 }
