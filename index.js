@@ -42,6 +42,11 @@ manager.on("nodeError", (node, error) => {
   console.log("Lavalink Error:", error);
 });
 
+manager.on("trackStart", (player, track) => {
+  const channel = client.channels.cache.get(player.textChannel);
+  if (channel) channel.send(`🎶 الآن يتم تشغيل: ${track.title}`);
+});
+
 client.on("messageCreate", async (message) => {
   if (message.author.bot) return;
   if (!message.content.startsWith("!sPlay")) return;
@@ -60,11 +65,11 @@ client.on("messageCreate", async (message) => {
     selfDeafen: true
   });
 
-  player.connect();
+  if (player.state !== "CONNECTED") player.connect();
 
   const res = await manager.search(query, message.author);
 
-  if (res.loadType === "NO_MATCHES") {
+  if (!res || !res.tracks.length) {
     return message.reply("ما حصلت شي.");
   }
 
@@ -74,7 +79,7 @@ client.on("messageCreate", async (message) => {
     player.play();
   }
 
-  message.reply("🎶 تم تشغيل الأغنية");
+  message.reply("🎶 تم إضافة الأغنية إلى الطابور");
 });
 
 client.login(process.env.TOKEN);
