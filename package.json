@@ -1,7 +1,7 @@
 {
   "name": "discord-music-bot",
   "version": "1.0.0",
-  "description": "Discord Music Bot using Lavalink",
+  "description": "Discord Music Bot using Lavalink 4",
   "main": "index.js",
   "type": "commonjs",
   "scripts": {
