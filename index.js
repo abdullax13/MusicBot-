@@ -1,30 +1,45 @@
 require("dotenv").config();
 
 const { Client, GatewayIntentBits } = require("discord.js");
-const {
-  joinVoiceChannel,
-  createAudioPlayer,
-  createAudioResource,
-  AudioPlayerStatus,
-  entersState,
-  VoiceConnectionStatus,
-  StreamType
-} = require("@discordjs/voice");
-
-const play = require("play-dl");
-const ytdl = require("ytdl-core");
+const { Manager } = require("erela.js");
 
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates,
     GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
-    GatewayIntentBits.GuildVoiceStates
+    GatewayIntentBits.MessageContent
   ]
+});
+
+const manager = new Manager({
+  nodes: [
+    {
+      host: process.env.LAVALINK_HOST,
+      port: 2333,
+      password: process.env.LAVALINK_PASSWORD,
+      secure: false
+    }
+  ],
+  send(id, payload) {
+    const guild = client.guilds.cache.get(id);
+    if (guild) guild.shard.send(payload);
+  }
 });
 
 client.once("clientReady", () => {
   console.log(`Bot is ready as ${client.user.tag}`);
+  manager.init(client.user.id);
+});
+
+client.on("raw", (d) => manager.updateVoiceState(d));
+
+manager.on("nodeConnect", () => {
+  console.log("Connected to Lavalink");
+});
+
+manager.on("nodeError", (node, error) => {
+  console.log("Lavalink Error:", error);
 });
 
 client.on("messageCreate", async (message) => {
@@ -38,50 +53,28 @@ client.on("messageCreate", async (message) => {
   const query = message.content.slice(6).trim();
   if (!query) return message.reply("اكتب اسم الأغنية بعد الأمر.");
 
-  try {
-    let url;
+  const player = manager.create({
+    guild: message.guild.id,
+    voiceChannel: message.member.voice.channel.id,
+    textChannel: message.channel.id,
+    selfDeafen: true
+  });
 
-    if (ytdl.validateURL(query)) {
-      url = query;
-    } else {
-      const results = await play.search(query, { limit: 1 });
-      if (!results.length) return message.reply("ما حصلت شي.");
-      url = results[0].url;
-    }
+  player.connect();
 
-    const stream = ytdl(url, {
-      filter: "audioonly",
-      quality: "highestaudio",
-      highWaterMark: 1 << 25
-    });
+  const res = await manager.search(query, message.author);
 
-    const connection = joinVoiceChannel({
-      channelId: message.member.voice.channel.id,
-      guildId: message.guild.id,
-      adapterCreator: message.guild.voiceAdapterCreator
-    });
-
-    await entersState(connection, VoiceConnectionStatus.Ready, 20000);
-
-    const player = createAudioPlayer();
-
-    const resource = createAudioResource(stream, {
-      inputType: StreamType.Arbitrary
-    });
-
-    player.play(resource);
-    connection.subscribe(player);
-
-    message.reply("🎶 تم تشغيل الأغنية");
-
-    player.on(AudioPlayerStatus.Idle, () => {
-      connection.destroy();
-    });
-
-  } catch (error) {
-    console.error("Playback Error:", error);
-    message.reply("صار خطأ أثناء التشغيل.");
+  if (res.loadType === "NO_MATCHES") {
+    return message.reply("ما حصلت شي.");
   }
+
+  player.queue.add(res.tracks[0]);
+
+  if (!player.playing && !player.paused && player.queue.totalSize === 1) {
+    player.play();
+  }
+
+  message.reply("🎶 تم تشغيل الأغنية");
 });
 
 client.login(process.env.TOKEN);
